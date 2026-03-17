@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    environment:
+      - SLSKD_SLSK_USERNAME=${SOULSEEK_USERNAME}
+      - SLSKD_SLSK_PASSWORD=${SOULSEEK_PASSWORD}
+      - SLSKD_NO_AUTH=true
+      - SLSKD_REMOTE_CONFIGURATION=false
+      - SLSKD_DOWNLOADS_DIR=/downloads
+      - SLSKD_INCOMPLETE_DIR=/incomplete
+      - SLSKD_SHARED_DIR=/shared
+    volumes:
+      - ./data/downloads:/downloads
+      - ./data/incomplete:/incomplete
+      - ./data/shared:/shared
+    ports:
+      - "5030:5030"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5030/api/v0/application"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build: ./backend
+    container_name: soulify-backend
+    environment:
+      - SLSKD_URL=http://slskd:5030
+      - DOWNLOADS_DIR=/downloads
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
+      - PORT=4000
+    volumes:
+      - ./data/downloads:/downloads:ro
+    ports:
+      - "4000:4000"
+    depends_on:
+      slskd:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: soulify-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  downloads:

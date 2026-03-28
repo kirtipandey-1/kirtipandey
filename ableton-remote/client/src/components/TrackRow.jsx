@@ -67,7 +67,7 @@ export default function TrackRow({ track }) {
         value={track.volume}
         onChange={handleVolume}
         className="w-full"
-        style={{ '--thumb-color': color } as React.CSSProperties}
+        style={{ '--thumb-color': color }}
       />
     </div>
   );

@@ -7,6 +7,7 @@ const searchRoutes = require("./routes/search");
 const streamRoutes = require("./routes/stream");
 const libraryRoutes = require("./routes/library");
 const recommendRoutes = require("./routes/recommendations");
+const spotifyRoutes = require("./routes/spotify");
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +37,7 @@ app.use("/api/search", searchRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/library", libraryRoutes);
 app.use("/api/recommendations", recommendRoutes);
+app.use("/api/spotify", spotifyRoutes);
 
 // Broadcast download progress updates to all WS clients
 function broadcast(data) {

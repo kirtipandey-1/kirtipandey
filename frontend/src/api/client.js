@@ -34,6 +34,11 @@ export const recommendations = {
     api.get("/recommendations/artist-info", { params: { artist } }).then((r) => r.data),
 };
 
+export const spotify = {
+  download: (url) => api.post("/spotify/download", { url }).then((r) => r.data),
+  status: (jobId) => api.get(`/spotify/status/${jobId}`).then((r) => r.data),
+};
+
 export const health = () => api.get("/health").then((r) => r.data);
 
 export default api;

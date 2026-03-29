@@ -1,11 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Home, Search, Library } from "lucide-react";
+import { Home, Search, Library, Music2 } from "lucide-react";
 
 const tabs = [
   { to: "/", label: "Home", icon: Home },
   { to: "/search", label: "Search", icon: Search },
   { to: "/library", label: "Library", icon: Library },
+  { to: "/spotify", label: "Spotify", icon: Music2 },
 ];
 
 export default function BottomNav() {

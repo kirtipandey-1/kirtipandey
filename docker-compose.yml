@@ -35,7 +35,7 @@ services:
       - LASTFM_API_KEY=${LASTFM_API_KEY:-}
       - PORT=4000
     volumes:
-      - ./data/downloads:/downloads:ro
+      - ./data/downloads:/downloads
     ports:
       - "4000:4000"
     depends_on:

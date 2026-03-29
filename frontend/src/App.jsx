@@ -7,6 +7,7 @@ import HomePage from "./pages/HomePage";
 import SearchPage from "./pages/SearchPage";
 import LibraryPage from "./pages/LibraryPage";
 import ArtistPage from "./pages/ArtistPage";
+import SpotifyPage from "./pages/SpotifyPage";
 import useStore from "./store/useStore";
 import { stream } from "./api/client";
 
@@ -125,6 +126,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/artist/:name" element={<ArtistPage />} />
+          <Route path="/spotify" element={<SpotifyPage />} />
         </Routes>
       </div>
 

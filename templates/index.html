@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Boxing Edit</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top, 16px) 20px env(safe-area-inset-bottom, 20px);
+    }
+
+    header {
+      padding: 28px 0 8px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+    header p {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: #161616;
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    input[type="url"],
+    input[type="text"] {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      color: #f0f0f0;
+      font-size: 15px;
+      padding: 13px 14px;
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color 0.15s;
+    }
+    input[type="url"]:focus,
+    input[type="text"]:focus {
+      border-color: #e63e00;
+    }
+
+    .upload-area {
+      background: #0a0a0a;
+      border: 1px dashed #2a2a2a;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+    .upload-area:active {
+      background: #111;
+    }
+    .upload-area.has-file {
+      border-color: #e63e00;
+      border-style: solid;
+    }
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .upload-icon { font-size: 28px; line-height: 1; }
+    .upload-label {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #aaa;
+    }
+    .upload-filename {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #e63e00;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .seg-control {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .seg-control button {
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #888;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .seg-control button.active {
+      background: #e63e00;
+      border-color: #e63e00;
+      color: #fff;
+    }
+
+    .form-row { margin-top: 16px; }
+
+    #generateBtn {
+      width: 100%;
+      background: #e63e00;
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 17px;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 24px;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #generateBtn:active { transform: scale(0.98); }
+    #generateBtn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Progress */
+    #progressSection {
+      display: none;
+      margin-top: 20px;
+    }
+    #progressSection.visible { display: block; }
+
+    .phases {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .phase-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .phase-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1e1e1e;
+      border: 2px solid #2a2a2a;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      transition: all 0.3s;
+    }
+    .phase-dot.active {
+      border-color: #e63e00;
+      color: #e63e00;
+      box-shadow: 0 0 8px rgba(230,62,0,0.4);
+    }
+    .phase-dot.done {
+      background: #e63e00;
+      border-color: #e63e00;
+      color: #fff;
+    }
+    .phase-dot.done::after { content: "✓"; }
+    .phase-dot:not(.done) .phase-num { display: block; }
+    .phase-dot.done .phase-num { display: none; }
+
+    .phase-text {
+      flex: 1;
+    }
+    .phase-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ccc;
+    }
+    .phase-status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .status-message {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #888;
+      text-align: center;
+      min-height: 18px;
+    }
+
+    #errorBox {
+      display: none;
+      background: #1e0a0a;
+      border: 1px solid #5a1a1a;
+      border-radius: 10px;
+      color: #ff6b6b;
+      font-size: 13px;
+      padding: 14px;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+    #errorBox.visible { display: block; }
+
+    #downloadBtn {
+      display: none;
+      width: 100%;
+      background: #1a3a1a;
+      border: 1px solid #2a5a2a;
+      border-radius: 12px;
+      color: #4caf50;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 17px;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 16px;
+      text-align: center;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #downloadBtn.visible { display: block; }
+
+    .hint {
+      text-align: center;
+      font-size: 11px;
+      color: #444;
+      margin-top: 20px;
+      padding-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Boxing Edit</h1>
+  <p>TikTok &amp; Reels Automation</p>
+</header>
+
+<form id="mainForm">
+  <div class="card">
+    <div class="form-row">
+      <label for="youtubeUrl">YouTube URL</label>
+      <input type="url" id="youtubeUrl" name="youtube_url"
+             placeholder="https://youtu.be/..."
+             autocomplete="off" autocorrect="off" spellcheck="false" required>
+    </div>
+
+    <div class="form-row">
+      <label>Song File</label>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="songFile" name="song"
+               accept="audio/*,.mp3,.wav,.flac,.m4a,.aac,.ogg"
+               required>
+        <div class="upload-icon">&#127925;</div>
+        <div class="upload-label">Tap to choose from Files</div>
+        <div class="upload-filename" id="uploadFilename"></div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Duration</label>
+      <div class="seg-control" id="durationControl">
+        <button type="button" data-value="30">30s</button>
+        <button type="button" data-value="60" class="active">60s</button>
+        <button type="button" data-value="90">90s</button>
+        <button type="button" data-value="full">Full</button>
+      </div>
+      <input type="hidden" id="durationInput" name="duration" value="60">
+    </div>
+  </div>
+
+  <button type="submit" id="generateBtn">Generate</button>
+</form>
+
+<div id="progressSection">
+  <div class="card">
+    <div class="phases">
+      <div class="phase-row" id="phase1Row">
+        <div class="phase-dot" id="dot1"><span class="phase-num">1</span></div>
+        <div class="phase-text">
+          <div class="phase-name">Download</div>
+          <div class="phase-status" id="status1">Waiting...</div>
+        </div>
+      </div>
+      <div class="phase-row" id="phase2Row">
+        <div class="phase-dot" id="dot2"><span class="phase-num">2</span></div>
+        <div class="phase-text">
+          <div class="phase-name">Beat Detection</div>
+          <div class="phase-status" id="status2">Waiting...</div>
+        </div>
+      </div>
+      <div class="phase-row" id="phase3Row">
+        <div class="phase-dot" id="dot3"><span class="phase-num">3</span></div>
+        <div class="phase-text">
+          <div class="phase-name">Motion Scoring</div>
+          <div class="phase-status" id="status3">Waiting...</div>
+        </div>
+      </div>
+      <div class="phase-row" id="phase4Row">
+        <div class="phase-dot" id="dot4"><span class="phase-num">4</span></div>
+        <div class="phase-text">
+          <div class="phase-name">Clip Mapping</div>
+          <div class="phase-status" id="status4">Waiting...</div>
+        </div>
+      </div>
+      <div class="phase-row" id="phase5Row">
+        <div class="phase-dot" id="dot5"><span class="phase-num">5</span></div>
+        <div class="phase-text">
+          <div class="phase-name">Render</div>
+          <div class="phase-status" id="status5">Waiting...</div>
+        </div>
+      </div>
+    </div>
+    <div class="status-message" id="statusMessage"></div>
+  </div>
+
+  <div id="errorBox"></div>
+  <a id="downloadBtn" href="#"></a>
+</div>
+
+<p class="hint">Outputs 9:16 vertical video &bull; 1080&times;1920</p>
+
+<script>
+  // Duration segment control
+  const durationBtns = document.querySelectorAll('#durationControl button');
+  const durationInput = document.getElementById('durationInput');
+  durationBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      durationBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      durationInput.value = btn.dataset.value;
+    });
+  });
+
+  // File upload label
+  document.getElementById('songFile').addEventListener('change', function() {
+    const name = this.files[0]?.name || '';
+    const area = document.getElementById('uploadArea');
+    const label = document.getElementById('uploadFilename');
+    if (name) {
+      label.textContent = name;
+      area.classList.add('has-file');
+    } else {
+      label.textContent = '';
+      area.classList.remove('has-file');
+    }
+  });
+
+  // Phase state helpers
+  let currentPhase = 0;
+
+  function setPhaseActive(phase) {
+    if (phase <= currentPhase) return;
+    currentPhase = phase;
+    const dot = document.getElementById(`dot${phase}`);
+    dot.classList.add('active');
+    document.getElementById(`status${phase}`).textContent = 'In progress...';
+  }
+
+  function setPhaseComplete(phase, msg) {
+    const dot = document.getElementById(`dot${phase}`);
+    dot.classList.remove('active');
+    dot.classList.add('done');
+    document.getElementById(`status${phase}`).textContent = msg || 'Done';
+  }
+
+  // Form submit
+  document.getElementById('mainForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.textContent = 'Working...';
+
+    // Reset progress UI
+    currentPhase = 0;
+    for (let i = 1; i <= 5; i++) {
+      const dot = document.getElementById(`dot${i}`);
+      dot.className = 'phase-dot';
+      dot.innerHTML = `<span class="phase-num">${i}</span>`;
+      document.getElementById(`status${i}`).textContent = 'Waiting...';
+    }
+    document.getElementById('statusMessage').textContent = '';
+    document.getElementById('errorBox').className = '';
+    document.getElementById('errorBox').textContent = '';
+    document.getElementById('downloadBtn').className = '';
+    document.getElementById('downloadBtn').href = '#';
+    document.getElementById('progressSection').className = 'visible';
+
+    // Upload form data
+    const formData = new FormData(this);
+    let jobId;
+    try {
+      const res = await fetch('/generate', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      jobId = data.job_id;
+    } catch (err) {
+      showError('Failed to start job: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Generate';
+      return;
+    }
+
+    // Stream progress via SSE
+    const es = new EventSource(`/progress/${jobId}`);
+    es.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+
+      if (data.error) {
+        es.close();
+        showError(data.error);
+        btn.disabled = false;
+        btn.textContent = 'Try Again';
+        return;
+      }
+
+      const phase = data.phase;
+      setPhaseActive(phase);
+
+      if (data.done) {
+        setPhaseComplete(phase, data.message);
+        document.getElementById('statusMessage').textContent = '';
+        es.close();
+
+        const dlBtn = document.getElementById('downloadBtn');
+        dlBtn.href = `/download/${jobId}`;
+        dlBtn.textContent = 'Download Video';
+        dlBtn.className = 'visible';
+        btn.disabled = false;
+        btn.textContent = 'Generate Another';
+      } else {
+        document.getElementById('statusMessage').textContent = data.message;
+        // Mark previous phases complete when we advance
+        for (let p = 1; p < phase; p++) {
+          const dot = document.getElementById(`dot${p}`);
+          if (!dot.classList.contains('done')) {
+            dot.className = 'phase-dot done';
+            dot.innerHTML = '';
+          }
+        }
+      }
+    };
+
+    es.onerror = function() {
+      es.close();
+      if (document.getElementById('downloadBtn').className !== 'visible') {
+        showError('Connection lost. The server may still be processing — try refreshing.');
+        btn.disabled = false;
+        btn.textContent = 'Try Again';
+      }
+    };
+  });
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.className = 'visible';
+    document.getElementById('statusMessage').textContent = '';
+  }
+</script>
+</body>
+</html>

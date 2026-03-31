@@ -2,8 +2,12 @@
 """
 boxing_edit.py — Auto-generate a boxing highlight video synced to a song's beat.
 
+Outputs vertical 9:16 (1080x1920) by default, optimized for TikTok and Instagram Reels.
+
 Usage:
-    python boxing_edit.py --youtube "https://youtube.com/watch?v=..." --song "mysong.mp3"
+    python boxing_edit.py "https://youtube.com/watch?v=..." "mysong.mp3"
+    python boxing_edit.py "https://youtube.com/watch?v=..." "mysong.mp3" --duration 30
+    python boxing_edit.py "https://youtube.com/watch?v=..." "mysong.mp3" --horizontal
 
 Requirements:
     pip install -r requirements.txt
@@ -35,6 +39,8 @@ DEFAULT_MAX_CLIP_DUR = 4.0   # seconds
 DEFAULT_SAMPLE_FPS = 5       # fps used for motion analysis pass
 DEFAULT_RECENCY_K = 3        # how many recently-used segments to avoid re-picking
 TARGET_FPS = 30              # output video framerate
+VERTICAL_WIDTH = 1080        # TikTok/Reels output width
+VERTICAL_HEIGHT = 1920       # TikTok/Reels output height
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +88,10 @@ def parse_args():
     p.add_argument("--sample-fps", type=int, default=DEFAULT_SAMPLE_FPS,
                    dest="sample_fps",
                    help="Frames per second for motion analysis (default: 5)")
+    p.add_argument("--duration", type=float, default=None, metavar="SECONDS",
+                   help="Cap output length in seconds (e.g. 30 for Reels, 60 for TikTok)")
+    p.add_argument("--horizontal", action="store_true",
+                   help="Output landscape 16:9 instead of vertical 9:16 (default is vertical)")
     p.add_argument("--keep-temp", action="store_true",
                    help="Keep temp files after rendering (useful for debugging)")
     p.add_argument("--verbose", action="store_true",
@@ -414,19 +424,18 @@ def map_beats_to_clips(beat_times: np.ndarray, segments: list[MotionSegment],
 
 def assemble_video(clip_specs: list[ClipSpec], raw_video_path: Path,
                    song_path: str, output_path: Path, quality: int,
-                   verbose: bool):
+                   vertical: bool, verbose: bool):
     try:
         from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
     except ImportError:
         sys.exit("Error: moviepy not installed. Run: pip install moviepy")
 
-    target_height = quality  # 480, 720, or 1080
-
     print(f"      Opening source video...")
     raw = VideoFileClip(str(raw_video_path))
 
     clips = []
-    print(f"      Extracting {len(clip_specs)} clips...")
+    print(f"      Extracting {len(clip_specs)} clips "
+          f"({'9:16 vertical' if vertical else '16:9 horizontal'})...")
     for spec in tqdm(clip_specs, desc="      Slicing", unit="clip",
                      disable=not verbose, ncols=80):
         # Clamp to actual video duration
@@ -434,7 +443,17 @@ def assemble_video(clip_specs: list[ClipSpec], raw_video_path: Path,
         t_end = max(t_start + 0.1, min(spec.source_end, raw.duration))
 
         sub = raw.subclip(t_start, t_end)
-        sub = sub.resize(height=target_height)
+
+        if vertical:
+            # Center-crop landscape source to 9:16 portrait
+            # Crop width to h*(9/16), centered horizontally
+            crop_w = int(sub.h * 9 / 16)
+            x1 = max(0, (sub.w - crop_w) // 2)
+            sub = sub.crop(x1=x1, x2=x1 + crop_w, y1=0, y2=sub.h)
+            sub = sub.resize((VERTICAL_WIDTH, VERTICAL_HEIGHT))
+        else:
+            sub = sub.resize(height=quality)
+
         sub = sub.without_audio()
         clips.append(sub)
 
@@ -479,7 +498,9 @@ def main():
         f"highlight_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     )
 
-    print("\n=== Boxing Edit Automation ===\n")
+    vertical = not args.horizontal
+    fmt_label = "9:16 vertical (TikTok/Reels)" if vertical else "16:9 horizontal"
+    print(f"\n=== Boxing Edit Automation | {fmt_label} ===\n")
 
     # Phase 0 — Validate
     validate_inputs(song_path, args.youtube)
@@ -497,6 +518,13 @@ def main():
     beat_times, song_duration = detect_beats(
         song_path, args.min_clip_dur, args.max_clip_dur, args.verbose
     )
+    # Cap output to --duration if specified
+    if args.duration and args.duration < song_duration:
+        beat_times = beat_times[beat_times <= args.duration]
+        if beat_times[-1] < args.duration:
+            beat_times = np.append(beat_times, args.duration)
+        song_duration = args.duration
+        print(f"      Capped to {args.duration:.0f}s for social media")
     print(f"      Done in {time.time()-t0:.0f}s\n")
 
     # Phase 3 — Motion scoring
@@ -520,7 +548,7 @@ def main():
     t0 = time.time()
     print(f"[5/5] Rendering highlight video...")
     assemble_video(clip_specs, video_path, song_path, output_path,
-                   args.quality, args.verbose)
+                   args.quality, vertical, args.verbose)
     render_time = time.time() - t0
     print(f"      Done in {render_time:.0f}s\n")
 

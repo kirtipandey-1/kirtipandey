@@ -64,9 +64,9 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Generate a boxing highlight video auto-cut to a song's beat."
     )
-    p.add_argument("--youtube", required=True, metavar="URL",
+    p.add_argument("youtube", metavar="URL",
                    help="YouTube URL of the boxing video to download")
-    p.add_argument("--song", required=True, metavar="PATH",
+    p.add_argument("song", metavar="SONG",
                    help="Path to the local song/music file (MP3, WAV, FLAC, etc.)")
     p.add_argument("--output", default=None, metavar="PATH",
                    help="Output file path (default: highlight_<timestamp>.mp4)")

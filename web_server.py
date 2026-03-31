@@ -22,22 +22,16 @@ from pathlib import Path
 
 from flask import Flask, Response, request, send_file, render_template
 
-# Import processing pipeline from boxing_edit.py
 sys.path.insert(0, str(Path(__file__).parent))
-from boxing_edit import (
-    DEFAULT_MAX_CLIP_DUR,
-    DEFAULT_MIN_CLIP_DUR,
-    DEFAULT_QUALITY,
-    DEFAULT_SAMPLE_FPS,
-    assemble_video,
-    create_temp_dir,
-    detect_beats,
-    download_video,
-    map_beats_to_clips,
-    score_video_segments,
-)
 
-import numpy as np
+# Mirror the defaults from boxing_edit.py here so we don't trigger
+# its heavy top-level imports (librosa/cv2/numba) at server startup.
+DEFAULT_QUALITY = 720
+DEFAULT_MIN_CLIP_DUR = 0.5
+DEFAULT_MAX_CLIP_DUR = 4.0
+DEFAULT_SAMPLE_FPS = 5
+
+# boxing_edit functions are imported lazily inside _run_job (see below)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200 MB upload limit
@@ -87,6 +81,13 @@ def _run_job(job_id: str, youtube_url: str, song_path: str,
         jobs[job_id]["status"] = "error"
 
     try:
+        # Lazy import — keeps server startup instant; numba JIT happens here
+        import numpy as np
+        from boxing_edit import (
+            assemble_video, detect_beats, download_video,
+            map_beats_to_clips, score_video_segments,
+        )
+
         temp_dir = Path(tempfile.mkdtemp(prefix=f"boxing_{job_id[:8]}_"))
         jobs[job_id]["temp_dir"] = temp_dir
 

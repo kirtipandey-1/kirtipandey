@@ -1,87 +1,84 @@
-# Soulify 🎵
+# IN MY ROOM
 
-A Spotify-like music app powered by Soulseek. Search and play anything on the Soulseek network with no login screen — just configure credentials once and it works.
+AI-powered documentary editor. Two modes: **In My Room** (single talking-head rearrangement) and **Mockumentary** (multi-clip scene ordering). Uses Whisper for transcription, Ollama/llama3.1:8b for creative reordering, and FFmpeg for video rendering.
 
-Works as a **PWA**: install on iPhone via Safari > Share > "Add to Home Screen", and open in any desktop browser.
+---
+
+## Quick start
+
+```bash
+# Make sure ollama is running first (see below)
+chmod +x run.sh
+./run.sh
+```
+
+Open `http://localhost:5050` in a browser.  
+For mobile access via ngrok: `ngrok http 5050`
 
 ---
 
 ## Requirements
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac/Windows) or Docker + Docker Compose (Linux)
-- A free Soulseek account → [soulseek.org](http://www.slsknet.org/news/node/1)
-- *(Optional)* A free Last.fm API key for song recommendations → [last.fm/api](https://www.last.fm/api/account/create)
+| Tool | Install |
+|------|---------|
+| Python 3.9+ | [python.org](https://python.org) |
+| FFmpeg | `brew install ffmpeg` or `apt install ffmpeg` |
+| Ollama | [ollama.com](https://ollama.com) |
+
+`run.sh` handles Python venv creation and pip installs automatically.
 
 ---
 
-## Setup
+## Ollama
+
+Ollama must be running before starting the app:
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url> && cd soulify
-
-# 2. Create your config
-cp .env.example .env
-# Edit .env with your Soulseek username & password (+ optional Last.fm key)
-
-# 3. Start everything
-docker-compose up -d
-
-# 4. Open in browser
-open http://localhost:3000
+ollama serve              # starts the server
+ollama pull llama3.1:8b   # first-run only (~4.7 GB)
 ```
 
-**iPhone**: Open `http://<your-mac-ip>:3000` in Safari (same Wi-Fi), then tap Share → "Add to Home Screen".
+`run.sh` starts Ollama automatically if it isn't already running.
+
+### Upgrading the model
+
+For better creative reasoning (requires 48+ GB VRAM or a large Mac):
+
+```python
+# app.py, line 12
+OLLAMA_MODEL = 'llama3.1:70b'
+```
+
+Then `ollama pull llama3.1:70b` and restart.
 
 ---
 
-## Features
+## Workflow notes
 
-| Feature | Description |
-|---|---|
-| 🔍 **Search** | Search the entire Soulseek network. Results update as they come in. Filter by MP3 / FLAC. |
-| ▶️ **Play** | Tap any result to download + play. Stream starts once the file is ready. |
-| 📚 **Library** | Browse your downloaded songs by track, artist, or album. |
-| 🎤 **Artist pages** | View popular tracks and similar artists (via Last.fm). |
-| 🎯 **Recommendations** | Similar track suggestions on the Now Playing screen. |
-| 📲 **PWA** | Installs on iPhone home screen like a native app. |
-| 🔀 **Queue / Shuffle / Repeat** | Full playback controls. |
+- **B-roll**: Drop the exported variant MP4 into DaVinci Resolve as your primary talking-head track, then layer b-roll on top manually — the cuts are already timed to the best sentence ordering.
+- **SRT files**: Each variant ships with a pre-timed `.srt` subtitle file. Import directly into DaVinci Resolve (`File > Import > Subtitles`) and it snaps to the cut edit automatically. No re-timing needed.
+- **Multiple variants**: Ollama generates up to 10 orderings per run. Render them all and pick the one that feels right before moving to color and mix.
 
 ---
 
-## Architecture
+## File structure
 
 ```
-Browser / iPhone PWA
-        │
-        ▼
-  Nginx (port 3000)
-  ├── /          → React frontend
-  ├── /api       → Node.js backend (port 4000)
-  └── /ws        → WebSocket (download progress)
-        │
-        ▼
-  slskd (port 5030) ← Soulseek network
-        │
-        ▼
-  ./data/downloads  ← downloaded files (shared volume)
+app.py              — Flask backend (transcription, Ollama, FFmpeg rendering)
+templates/
+  index.html        — Full UI (dark aesthetic, two-mode tabs)
+run.sh              — Dependency check, venv setup, auto-pull, launch
+static/
+  uploads/          — Temp upload storage (git-ignored)
+  outputs/          — Rendered MP4 + SRT variants (git-ignored)
 ```
 
 ---
 
-## Configuration
+## ngrok (mobile access)
 
-| Variable | Description |
-|---|---|
-| `SOULSEEK_USERNAME` | Your Soulseek username |
-| `SOULSEEK_PASSWORD` | Your Soulseek password |
-| `LASTFM_API_KEY` | *(Optional)* Last.fm key for recommendations |
+```bash
+ngrok http 5050
+```
 
----
-
-## Notes
-
-- Downloaded files are stored in `./data/downloads/` and persist across restarts.
-- Soulseek requires a **free** account — create one at soulseek.org.
-- For HTTPS on iPhone (needed for full PWA features), you can put a reverse proxy (Caddy, Nginx) with a self-signed cert in front.
-- slskd may take ~30 seconds to connect to the Soulseek network on first start.
+Open the `Forwarding` HTTPS URL on any device on any network.

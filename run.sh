@@ -46,7 +46,7 @@ source "$VENV_DIR/bin/activate"
 # ── Install Python deps ───────────────────────────────────────────────────────
 say "Installing / verifying Python dependencies…"
 pip install --quiet --upgrade pip
-pip install --quiet flask faster-whisper moviepy==1.0.3 numpy requests
+pip install --quiet flask flask-cors faster-whisper moviepy==1.0.3 numpy requests
 
 # ── Create output dirs ────────────────────────────────────────────────────────
 mkdir -p static/uploads static/outputs

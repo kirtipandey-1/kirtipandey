@@ -10,8 +10,10 @@ import shutil
 from pathlib import Path
 
 from flask import Flask, request, jsonify, send_file, render_template
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB
 
 UPLOAD_DIR = Path('static/uploads')

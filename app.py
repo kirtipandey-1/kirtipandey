@@ -131,17 +131,18 @@ def call_ollama(prompt):
 # ---------------------------------------------------------------------------
 
 def basic_fallback(ids):
+    ids = list(ids)
     n = len(ids)
-    variants = [{'label': 'Original', 'reasoning': 'As spoken.', 'order': list(ids)}]
-    if n > 2:
-        variants.append({'label': 'Reversed', 'reasoning': 'Reversed for contrast.', 'order': list(reversed(ids))})
-    if n > 4:
+    variants = [{'label': 'Original', 'reasoning': 'As spoken.', 'order': ids[:]}]
+    if n >= 2:
+        variants.append({'label': 'Reversed', 'reasoning': 'Conclusion opens, hook closes.', 'order': ids[::-1]})
+    if n >= 3:
+        variants.append({'label': 'In Medias Res', 'reasoning': 'Drops the opener, starts mid-thought.', 'order': ids[1:]})
+    if n >= 4:
         mid = n // 2
-        variants.append({
-            'label': 'Back Half First',
-            'reasoning': 'Conclusion leads.',
-            'order': list(ids[mid:]) + list(ids[:mid]),
-        })
+        variants.append({'label': 'Bookend', 'reasoning': 'Final line echoes the opening.', 'order': ids[1:] + [ids[0]]})
+    if n >= 5:
+        variants.append({'label': 'Core Only', 'reasoning': 'Strips intro and outro, keeps the dense middle.', 'order': ids[1:-1]})
     return variants
 
 
@@ -299,97 +300,94 @@ Return only the JSON array, no other text."""
 
 
 # ---------------------------------------------------------------------------
-# Mockumentary processing
+# Mockumentary processing — sentence-level rearrangement per clip
 # ---------------------------------------------------------------------------
 
 def process_mockumentary_job(job_id, clips_data):
     job = jobs[job_id]
     try:
-        transcripts = []
-        for i, c in enumerate(clips_data):
-            job['status'] = f'Transcribing clip {i + 1}/{len(clips_data)}: {c["label"]}…'
-            words = transcribe(c['path'])
+        out_base = OUTPUT_DIR / job_id
+        out_base.mkdir(exist_ok=True)
+
+        total_words = total_clean = total_sents = 0
+
+        for clip_idx, clip in enumerate(clips_data):
+            job['status'] = f'Transcribing clip {clip_idx + 1}/{len(clips_data)}: {clip["label"]}...'
+            words = transcribe(clip['path'])
             clean = remove_fillers(words)
             groups = split_sentences(clean)
-            sents = sentences_to_meta(groups)
-            transcripts.append({
-                'index': i,
-                'label': c['label'],
-                'path': c['path'],
-                'sentences': sents,
-                'word_count': len(words),
-                'clean_count': len(clean),
-            })
+            sentences = sentences_to_meta(groups)
 
-        job['stats'] = {
-            'word_count': sum(t['word_count'] for t in transcripts),
-            'clean_count': sum(t['clean_count'] for t in transcripts),
-            'sentence_count': sum(len(t['sentences']) for t in transcripts),
-        }
+            total_words += len(words)
+            total_clean += len(clean)
+            total_sents += len(sentences)
 
-        job['status'] = 'Asking Ollama for scene orderings…'
-        descriptions = '\n\n'.join(
-            f"Clip {t['index']} — {t['label']}:\n" + ' '.join(s['text'] for s in t['sentences'])
-            for t in transcripts
-        )
-        n_clips = len(transcripts)
-        prompt = f"""You are editing a mockumentary documentary. Here are the clips with their transcripts:
+            job['stats'] = {
+                'word_count': total_words,
+                'clean_count': total_clean,
+                'sentence_count': total_sents,
+            }
 
-{descriptions}
+            if not sentences:
+                continue
 
-Generate up to 10 valid scene orderings where the documentary narrative makes sense. Consider story arc, emotional flow, and thematic coherence.
+            job['status'] = f'Asking Ollama for rearrangements of "{clip["label"]}"...'
+            numbered = '\n'.join(f"[{s['id']}] {s['text']}" for s in sentences)
+            prompt = f"""You are editing a documentary scene called "{clip['label']}".
+
+Here are the numbered sentences from this clip's transcript:
+{numbered}
+
+Generate up to 5 semantically valid rearrangements or subsets where the scene still lands well. You may omit sentences, repeat a sentence id as a bookend, or start anywhere.
 
 Return ONLY a JSON array of objects with exactly these keys:
 - label: short descriptive string
-- reasoning: one sentence explaining why this ordering works narratively
-- order: array of clip indices (integers 0–{n_clips - 1})
+- reasoning: one sentence explaining why this ordering works
+- order: array of sentence ids (integers)
 
-Example: [{{"label":"Build to Climax","reasoning":"Quiet opening builds to the most intense moment.","order":[0,2,1,3]}}]
+Example: [{{"label":"Cold Open","reasoning":"Starting with the hook creates immediate tension.","order":[3,0,1,4]}}]
 
 Return only the JSON array, no other text."""
 
-        variants = call_ollama(prompt) or basic_fallback(list(range(n_clips)))
+            variants = call_ollama(prompt) or basic_fallback([s['id'] for s in sentences])
 
-        job['status'] = 'Rendering video variants…'
-        out_base = OUTPUT_DIR / job_id
-        out_base.mkdir(exist_ok=True)
-        job['variants'] = []
+            for vi, var in enumerate(variants):
+                try:
+                    order = [o for o in var.get('order', []) if 0 <= o < len(sentences)]
+                    if not order:
+                        continue
 
-        for vi, var in enumerate(variants):
-            try:
-                order = [o for o in var.get('order', []) if 0 <= o < n_clips]
-                if not order:
-                    continue
+                    clips_list, srt_entries = [], []
+                    cursor = 0.0
 
-                paths = [transcripts[idx]['path'] for idx in order]
-                mp4 = out_base / f'variant_{vi}.mp4'
-                concat_clips(paths, mp4)
+                    for sid in order:
+                        s = sentences[sid]
+                        cp = out_base / f'c{clip_idx}_v{vi}_s{sid}.mp4'
+                        extract_clip(clip['path'], s['start'], s['end'], cp)
+                        dur = s['end'] - s['start']
+                        clips_list.append(cp)
+                        srt_entries.append({'text': s['text'], 'start': cursor, 'end': cursor + dur})
+                        cursor += dur
 
-                srt_entries = []
-                cursor = 0.0
-                for idx in order:
-                    t = transcripts[idx]
-                    clip_dur = probe_duration(t['path'])
-                    for s in t['sentences']:
-                        srt_entries.append({
-                            'text': s['text'],
-                            'start': cursor + s['start'],
-                            'end': cursor + s['end'],
-                        })
-                    cursor += clip_dur
+                    mp4 = out_base / f'variant_{clip_idx}_{vi}.mp4'
+                    concat_clips(clips_list, mp4)
 
-                srt = out_base / f'variant_{vi}.srt'
-                srt.write_text(build_srt(srt_entries))
+                    srt = out_base / f'variant_{clip_idx}_{vi}.srt'
+                    srt.write_text(build_srt(srt_entries))
 
-                job['variants'].append({
-                    'label': var.get('label', f'Variant {vi + 1}'),
-                    'reasoning': var.get('reasoning', ''),
-                    'mp4': f'/static/outputs/{job_id}/variant_{vi}.mp4',
-                    'srt': f'/static/outputs/{job_id}/variant_{vi}.srt',
-                })
-                job['status'] = f'Rendered {len(job["variants"])} variant(s)…'
-            except Exception as e:
-                print(f'[mockumentary] variant {vi} error: {e}')
+                    for cp in clips_list:
+                        cp.unlink(missing_ok=True)
+
+                    job['variants'].append({
+                        'label': f'{clip["label"]} — {var.get("label", f"Variant {vi + 1}")}',
+                        'reasoning': var.get('reasoning', ''),
+                        'mp4': f'/static/outputs/{job_id}/variant_{clip_idx}_{vi}.mp4',
+                        'srt': f'/static/outputs/{job_id}/variant_{clip_idx}_{vi}.srt',
+                    })
+                    job['status'] = f'Rendered {len(job["variants"])} variant(s)...'
+
+                except Exception as e:
+                    print(f'[mockumentary] clip {clip_idx} variant {vi} error: {e}')
 
         job['status'] = 'complete'
 

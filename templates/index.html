@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IN MY ROOM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0806;
+    --bg2: #111009;
+    --bg3: #1a1710;
+    --gold: #c8a55a;
+    --gold-dim: #8c7040;
+    --gold-faint: #2a2218;
+    --text: #d4cfc8;
+    --muted: #7a7368;
+    --border: #2a2520;
+    --error: #c05a5a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 128px 128px;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* Header */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .site-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 8vw, 96px);
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .site-sub {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.1em;
+    padding: 10px 28px 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1px dashed var(--gold-dim);
+    border-radius: 4px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    background: var(--bg2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    background: var(--gold-faint);
+    border-color: var(--gold);
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    color: var(--gold-dim);
+  }
+
+  .drop-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.1em;
+    color: var(--gold-dim);
+  }
+
+  .drop-hint {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 6px;
+  }
+
+  .file-chosen {
+    color: var(--gold);
+    font-size: 12px;
+    margin-top: 10px;
+    display: none;
+  }
+
+  /* Clip slots (mockumentary) */
+  .clip-slots { display: flex; flex-direction: column; gap: 12px; }
+
+  .clip-slot {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .clip-label-input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .clip-label-input:focus { border-color: var(--gold-dim); }
+  .clip-label-input::placeholder { color: var(--muted); }
+
+  .add-clip-btn {
+    margin-top: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .add-clip-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+  /* Run button */
+  .run-row { margin-top: 24px; display: flex; align-items: center; gap: 20px; }
+
+  .run-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.15em;
+    padding: 14px 48px;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-wrap {
+    margin-top: 28px;
+    display: none;
+  }
+
+  .progress-bar-outer {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-inner {
+    height: 100%;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.6s ease;
+    border-radius: 2px;
+  }
+
+  .progress-bar-inner.indeterminate {
+    animation: indeterminate 1.4s ease infinite;
+    width: 40% !important;
+  }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  .status-text {
+    color: var(--muted);
+    font-size: 12px;
+    min-height: 18px;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 32px;
+    margin-top: 20px;
+    padding: 16px 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: none;
+  }
+
+  .stat { display: flex; flex-direction: column; gap: 4px; }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .stat-label {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Output section */
+  .output-section { margin-top: 40px; }
+
+  .output-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  /* Cards */
+  .cards { display: flex; flex-direction: column; gap: 20px; }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: card-in 0.4s ease forwards;
+  }
+
+  @keyframes card-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-head {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    justify-content: space-between;
+  }
+
+  .card-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+  }
+
+  .card-reasoning {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .card-body { padding: 16px 20px; }
+
+  video {
+    width: 100%;
+    border-radius: 3px;
+    background: #000;
+    display: block;
+    max-height: 320px;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .dl-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 8px 18px;
+    border: 1px solid var(--gold-dim);
+    background: transparent;
+    color: var(--gold);
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: inline-block;
+  }
+
+  .dl-btn:hover { background: var(--gold-faint); }
+
+  .dl-btn.srt { border-color: var(--border); color: var(--muted); }
+  .dl-btn.srt:hover { color: var(--text); border-color: var(--gold-dim); }
+
+  /* Error banner */
+  .error-banner {
+    background: #200a0a;
+    border: 1px solid var(--error);
+    color: var(--error);
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  /* Misc */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="site-title">IN MY ROOM</div>
+    <div class="site-sub">AI Documentary Editor &nbsp;/&nbsp; Whisper + Ollama + FFmpeg</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="room">In My Room</button>
+    <button class="tab-btn" data-tab="mock">Mockumentary</button>
+  </div>
+
+  <!-- ─── IN MY ROOM ─────────────────────────────────────────── -->
+  <div class="panel active" id="panel-room">
+    <div class="drop-zone" id="room-drop">
+      <input type="file" id="room-file" accept="video/*">
+      <div class="drop-icon">▶</div>
+      <div class="drop-label">Drop talking-head video here</div>
+      <div class="drop-hint">MP4, MOV, MKV — up to 1 GB</div>
+      <div class="file-chosen" id="room-chosen"></div>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" id="room-run" disabled>Run Pipeline</button>
+    </div>
+
+    <div class="error-banner" id="room-error"></div>
+
+    <div class="progress-wrap" id="room-progress">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner indeterminate" id="room-bar"></div>
+      </div>
+      <div class="status-text" id="room-status">Starting…</div>
+    </div>
+
+    <div class="stats-row" id="room-stats">
+      <div class="stat">
+        <div class="stat-val" id="room-words">—</div>
+        <div class="stat-label">Raw words</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="room-clean">—</div>
+        <div class="stat-label">After filler removal</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="room-sents">—</div>
+        <div class="stat-label">Sentences</div>
+      </div>
+    </div>
+
+    <div class="output-section" id="room-output" style="display:none">
+      <div class="output-header" id="room-output-header">Variants</div>
+      <div class="cards" id="room-cards"></div>
+    </div>
+  </div>
+
+  <!-- ─── MOCKUMENTARY ──────────────────────────────────────── -->
+  <div class="panel" id="panel-mock">
+    <div class="clip-slots" id="mock-slots"></div>
+
+    <button class="add-clip-btn" id="add-clip">+ Add clip</button>
+
+    <div class="run-row">
+      <button class="run-btn" id="mock-run" disabled>Run Pipeline</button>
+    </div>
+
+    <div class="error-banner" id="mock-error"></div>
+
+    <div class="progress-wrap" id="mock-progress">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner indeterminate" id="mock-bar"></div>
+      </div>
+      <div class="status-text" id="mock-status">Starting…</div>
+    </div>
+
+    <div class="stats-row" id="mock-stats">
+      <div class="stat">
+        <div class="stat-val" id="mock-words">—</div>
+        <div class="stat-label">Raw words</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="mock-clean">—</div>
+        <div class="stat-label">After filler removal</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="mock-sents">—</div>
+        <div class="stat-label">Sentences</div>
+      </div>
+    </div>
+
+    <div class="output-section" id="mock-output" style="display:none">
+      <div class="output-header" id="mock-output-header">Variants</div>
+      <div class="cards" id="mock-cards"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Room mode ───────────────────────────────────────────────────────────────
+const roomFile = document.getElementById('room-file');
+const roomChosen = document.getElementById('room-chosen');
+const roomRun = document.getElementById('room-run');
+const roomDrop = document.getElementById('room-drop');
+
+roomFile.addEventListener('change', () => {
+  if (roomFile.files.length) {
+    roomChosen.textContent = roomFile.files[0].name;
+    roomChosen.style.display = 'block';
+    roomRun.disabled = false;
+  }
+});
+
+['dragover', 'dragleave', 'drop'].forEach(evt => {
+  roomDrop.addEventListener(evt, e => {
+    e.preventDefault();
+    if (evt === 'dragover') roomDrop.classList.add('drag-over');
+    else roomDrop.classList.remove('drag-over');
+    if (evt === 'drop' && e.dataTransfer.files.length) {
+      const dt = new DataTransfer();
+      dt.items.add(e.dataTransfer.files[0]);
+      roomFile.files = dt.files;
+      roomFile.dispatchEvent(new Event('change'));
+    }
+  });
+});
+
+roomRun.addEventListener('click', () => {
+  if (!roomFile.files.length) return;
+  startRoomJob(roomFile.files[0]);
+});
+
+function startRoomJob(file) {
+  roomRun.disabled = true;
+  document.getElementById('room-error').style.display = 'none';
+  document.getElementById('room-output').style.display = 'none';
+  document.getElementById('room-cards').innerHTML = '';
+  document.getElementById('room-stats').style.display = 'none';
+
+  const prog = document.getElementById('room-progress');
+  prog.style.display = 'block';
+  setStatus('room', 'Uploading…');
+
+  const fd = new FormData();
+  fd.append('video', file);
+
+  fetch('/upload/room', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { showError('room', d.error); return; }
+      pollJob('room', d.job_id);
+    })
+    .catch(e => showError('room', e.toString()));
+}
+
+// ─── Mockumentary mode ───────────────────────────────────────────────────────
+let slotCount = 0;
+
+function addClipSlot() {
+  const idx = slotCount++;
+  const slot = document.createElement('div');
+  slot.className = 'clip-slot';
+  slot.id = `slot-${idx}`;
+  slot.innerHTML = `
+    <div class="drop-zone" id="drop-${idx}" style="padding:20px 16px">
+      <input type="file" id="file-${idx}" accept="video/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      <div class="drop-label" style="font-size:15px">Drop clip ${idx + 1}</div>
+      <div class="file-chosen" id="chosen-${idx}"></div>
+    </div>
+    <input class="clip-label-input" id="label-${idx}" placeholder="Scene label (e.g. studio intro)" value="Clip ${idx + 1}">
+  `;
+  document.getElementById('mock-slots').appendChild(slot);
+
+  const fileEl = document.getElementById(`file-${idx}`);
+  const chosenEl = document.getElementById(`chosen-${idx}`);
+  fileEl.addEventListener('change', () => {
+    if (fileEl.files.length) {
+      chosenEl.textContent = fileEl.files[0].name;
+      chosenEl.style.display = 'block';
+    }
+    updateMockRunBtn();
+  });
+
+  const dropEl = document.getElementById(`drop-${idx}`);
+  ['dragover','dragleave','drop'].forEach(evt => {
+    dropEl.addEventListener(evt, e => {
+      e.preventDefault();
+      if (evt === 'dragover') dropEl.classList.add('drag-over');
+      else dropEl.classList.remove('drag-over');
+      if (evt === 'drop' && e.dataTransfer.files.length) {
+        const dt = new DataTransfer();
+        dt.items.add(e.dataTransfer.files[0]);
+        fileEl.files = dt.files;
+        fileEl.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+}
+
+function updateMockRunBtn() {
+  let hasFile = false;
+  for (let i = 0; i < slotCount; i++) {
+    const f = document.getElementById(`file-${i}`);
+    if (f && f.files.length) { hasFile = true; break; }
+  }
+  document.getElementById('mock-run').disabled = !hasFile;
+}
+
+document.getElementById('add-clip').addEventListener('click', addClipSlot);
+addClipSlot(); // start with one slot
+addClipSlot(); // and a second
+
+document.getElementById('mock-run').addEventListener('click', () => {
+  const fd = new FormData();
+  let count = 0;
+  for (let i = 0; i < slotCount; i++) {
+    const f = document.getElementById(`file-${i}`);
+    const lbl = document.getElementById(`label-${i}`);
+    if (f && f.files.length) {
+      fd.append(`clip_${count}`, f.files[0]);
+      fd.append(`label_${count}`, lbl ? lbl.value : `Clip ${count + 1}`);
+      count++;
+    }
+  }
+  if (!count) return;
+
+  document.getElementById('mock-run').disabled = true;
+  document.getElementById('mock-error').style.display = 'none';
+  document.getElementById('mock-output').style.display = 'none';
+  document.getElementById('mock-cards').innerHTML = '';
+  document.getElementById('mock-stats').style.display = 'none';
+
+  const prog = document.getElementById('mock-progress');
+  prog.style.display = 'block';
+  setStatus('mock', 'Uploading…');
+
+  fetch('/upload/mockumentary', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { showError('mock', d.error); return; }
+      pollJob('mock', d.job_id);
+    })
+    .catch(e => showError('mock', e.toString()));
+});
+
+// ─── Polling ─────────────────────────────────────────────────────────────────
+function pollJob(mode, jobId) {
+  const interval = setInterval(() => {
+    fetch(`/status/${jobId}`)
+      .then(r => r.json())
+      .then(d => {
+        setStatus(mode, d.status);
+
+        if (d.stats && Object.keys(d.stats).length) {
+          showStats(mode, d.stats);
+        }
+
+        if (d.variants && d.variants.length) {
+          renderVariants(mode, d.variants);
+        }
+
+        if (d.status === 'complete') {
+          clearInterval(interval);
+          finishProgress(mode, d.variants ? d.variants.length : 0);
+          document.getElementById(`${mode}-run`).disabled = false;
+        }
+
+        if (d.status === 'error') {
+          clearInterval(interval);
+          showError(mode, d.error || 'Unknown error');
+          document.getElementById(`${mode}-run`).disabled = false;
+          document.getElementById(`${mode}-progress`).style.display = 'none';
+        }
+      })
+      .catch(() => {});
+  }, 1500);
+}
+
+function setStatus(mode, text) {
+  document.getElementById(`${mode}-status`).textContent = text;
+}
+
+function showStats(mode, stats) {
+  const el = document.getElementById(`${mode}-stats`);
+  el.style.display = 'flex';
+  document.getElementById(`${mode}-words`).textContent = stats.word_count ?? '—';
+  document.getElementById(`${mode}-clean`).textContent = stats.clean_count ?? '—';
+  document.getElementById(`${mode}-sents`).textContent = stats.sentence_count ?? '—';
+}
+
+let renderedCounts = {};
+function renderVariants(mode, variants) {
+  const key = mode;
+  if (!renderedCounts[key]) renderedCounts[key] = 0;
+
+  const cards = document.getElementById(`${mode}-cards`);
+  const output = document.getElementById(`${mode}-output`);
+  const header = document.getElementById(`${mode}-output-header`);
+
+  output.style.display = 'block';
+  header.textContent = `${variants.length} Variant${variants.length !== 1 ? 's' : ''} Found`;
+
+  for (let i = renderedCounts[key]; i < variants.length; i++) {
+    const v = variants[i];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.animationDelay = `${(i - renderedCounts[key]) * 0.08}s`;
+    card.innerHTML = `
+      <div class="card-head">
+        <div>
+          <div class="card-label">${escHtml(v.label)}</div>
+          ${v.reasoning ? `<div class="card-reasoning">${escHtml(v.reasoning)}</div>` : ''}
+        </div>
+      </div>
+      <div class="card-body">
+        <video controls preload="metadata" src="${v.mp4}"></video>
+        <div class="card-actions">
+          <a class="dl-btn" href="${v.mp4}" download>Download MP4</a>
+          <a class="dl-btn srt" href="${v.srt}" download>Download SRT</a>
+        </div>
+      </div>
+    `;
+    cards.appendChild(card);
+  }
+  renderedCounts[key] = variants.length;
+}
+
+function finishProgress(mode, count) {
+  const bar = document.getElementById(`${mode}-bar`);
+  bar.classList.remove('indeterminate');
+  bar.style.width = '100%';
+  setStatus(mode, `Done — ${count} variant${count !== 1 ? 's' : ''} rendered.`);
+}
+
+function showError(mode, msg) {
+  const el = document.getElementById(`${mode}-error`);
+  el.textContent = msg;
+  el.style.display = 'block';
+  const bar = document.getElementById(`${mode}-bar`);
+  if (bar) { bar.classList.remove('indeterminate'); bar.style.width = '0%'; }
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
